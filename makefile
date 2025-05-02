@@ -72,7 +72,7 @@ build-run-mpi: build-mpi run-mpi
 
 # ---- Combine all ----
 build-combine:
-	docker exec -w /workspace $(DOCKER_CONTAINER) $(CXX) $(CXXFLAGS) combine_all.cpp utils.cpp -o combine_all.out $(LDFLAGS)
+	docker exec -w /workspace $(DOCKER_CONTAINER) $(CXX) -std=c++17 $(CXXFLAGS) combine_all.cpp utils.cpp -o combine_all.out $(LDFLAGS)
 
 run-combine-only:
 	docker exec -w /workspace $(DOCKER_CONTAINER) sh -c 'LD_LIBRARY_PATH=/usr/local/lib ./combine_all.out'

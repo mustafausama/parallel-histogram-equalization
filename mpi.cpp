@@ -1,5 +1,6 @@
 #include <mpi.h>
 #include "utils.hpp"
+#include <fstream>
 
 using namespace cv;
 using namespace std;
@@ -203,10 +204,10 @@ int main(int argc, char **argv)
         cout << "Runtime: " << duration << " ms" << endl;
 
         // Save runtime to file
-        ofstream runtimeFile(RUNTIME_OUTPUT_PATH);
+        ofstream runtimeFile(RUNTIME_OUTPUT_PATH, ios::trunc);
         if (runtimeFile.is_open())
         {
-            runtimeFile << "Runtime: " << duration << " ms" << endl;
+            runtimeFile << duration << " ms" << endl;
             runtimeFile.close();
         }
         else

@@ -1,4 +1,5 @@
 #include "utils.hpp"
+#include <fstream>
 
 using namespace cv;
 using namespace std;
@@ -10,7 +11,7 @@ using namespace std;
 #define BEFORE_IMAGE_HISTOGRAM_COMBINED_PATH "output/seq/before/image_histo_before_seq.png"
 #define AFTER_IMAGE_HISTOGRAM_COMBINED_PATH "output/seq/after/image_histo_after_seq.png"
 #define BEFORE_AFTER_COMBINED_PATH "output/seq/result_seq.png"
-#define RUNTIME_OUTPUT_PATH "output/mpi/runtime_seq.txt"
+#define RUNTIME_OUTPUT_PATH "output/seq/runtime_seq.txt"
 
 void manualHistogramEqualization(const Mat &input, Mat &output, vector<int> &histBefore, vector<int> &histAfter)
 {
@@ -124,10 +125,10 @@ int main(int argc, char **argv)
     cout << "Runtime: " << duration << " ms" << endl;
 
     // Save runtime to file
-    ofstream runtimeFile(RUNTIME_OUTPUT_PATH, ios::app);
+    ofstream runtimeFile(RUNTIME_OUTPUT_PATH, ios::trunc);
     if (runtimeFile.is_open())
     {
-        runtimeFile << "Runtime: " << duration << " ms" << endl;
+        runtimeFile << duration << " ms" << endl;
         runtimeFile.close();
     }
     else

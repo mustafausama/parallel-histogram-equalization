@@ -3,6 +3,7 @@ output/**/*.jpg
 output/**/*.jpeg
 output/**/*.gif
 output/**/*.webp
+output/**/*.txt
 
 *.out
 *.o
