@@ -12,13 +12,14 @@ using namespace std;
 void manualHistogramEqualization(const Mat& input, Mat& output, vector<int>& histBefore, vector<int>& histAfter) {
     int histSize = 256;
     histBefore.assign(histSize, 0);
+    histAfter.assign(histSize, 0);
 
-    // Parallel histogram calculation with reduction
+    // Parallel histogram calculation using per-thread local histograms + reduction
     #pragma omp parallel
     {
         vector<int> localHist(histSize, 0);
 
-        #pragma omp for nowait
+        #pragma omp for collapse(2)
         for (int i = 0; i < input.rows; i++) {
             for (int j = 0; j < input.cols; j++) {
                 int pixelValue = input.at<uchar>(i, j);
@@ -26,7 +27,7 @@ void manualHistogramEqualization(const Mat& input, Mat& output, vector<int>& his
             }
         }
 
-        // Combine local histograms
+        // Merge local histograms into the global histogram
         #pragma omp critical
         {
             for (int i = 0; i < histSize; i++) {
@@ -35,6 +36,7 @@ void manualHistogramEqualization(const Mat& input, Mat& output, vector<int>& his
         }
     }
 
+    // Compute PDF
     vector<float> pdf(histSize, 0.0);
     int totalPixels = input.rows * input.cols;
     #pragma omp parallel for
@@ -42,38 +44,43 @@ void manualHistogramEqualization(const Mat& input, Mat& output, vector<int>& his
         pdf[i] = (float)histBefore[i] / totalPixels;
     }
 
+    // Compute CDF (serial because it's tiny work)
     vector<float> cdf(histSize, 0.0);
     cdf[0] = pdf[0];
     for (int i = 1; i < histSize; i++) {
         cdf[i] = cdf[i - 1] + pdf[i];
     }
 
+    // Prepare LUT
     vector<uchar> equalizedLUT(histSize, 0);
     #pragma omp parallel for
     for (int i = 0; i < histSize; i++) {
         equalizedLUT[i] = cvRound(cdf[i] * 255);
     }
 
+    // Apply LUT to get the equalized image
     output = input.clone();
-    #pragma omp parallel for
+    #pragma omp parallel for collapse(2)
     for (int i = 0; i < input.rows; i++) {
         for (int j = 0; j < input.cols; j++) {
             output.at<uchar>(i, j) = equalizedLUT[input.at<uchar>(i, j)];
         }
     }
 
-    // Calculate histogram after equalization
-    histAfter.assign(histSize, 0);
+    // Histogram after equalization using per-thread local histograms + reduction
     #pragma omp parallel
     {
         vector<int> localHist(histSize, 0);
-        #pragma omp for nowait
+
+        #pragma omp for collapse(2)
         for (int i = 0; i < output.rows; i++) {
             for (int j = 0; j < output.cols; j++) {
                 int pixelValue = output.at<uchar>(i, j);
                 localHist[pixelValue]++;
             }
         }
+
+        // Merge local histograms into the global histogram
         #pragma omp critical
         {
             for (int i = 0; i < histSize; i++) {

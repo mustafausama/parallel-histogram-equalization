@@ -5,3 +5,4 @@ output/**/*.gif
 output/**/*.webp
 
 *.out
+*.o
