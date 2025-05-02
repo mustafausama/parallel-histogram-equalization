@@ -7,6 +7,49 @@
 using namespace cv;
 using namespace std;
 
+// Function to print histogram as ASCII chart
+void printHistogramASCII(const vector<int>& histogram, const string& title) {
+    cout << "\n=== " << title << " ===" << endl;
+    int maxCount = *max_element(histogram.begin(), histogram.end());
+    int scale = maxCount / 50; // scale to 50 chars width max
+
+    for (int i = 0; i < histogram.size(); i++) {
+        if (histogram[i] > 0) {
+            cout << "[" << setw(3) << i << "] ";
+            int barLength = histogram[i] / (scale == 0 ? 1 : scale);
+            for (int j = 0; j < barLength; j++) {
+                cout << "#";
+            }
+            cout << " (" << histogram[i] << ")" << endl;
+        }
+    }
+}
+
+// Function to plot histogram and save as image
+void plotHistogramImage(const vector<int>& histogram, const string& filename) {
+    int histSize = histogram.size();
+    int hist_w = 512; int hist_h = 400;
+    int bin_w = cvRound((double) hist_w / histSize);
+
+    Mat histImage(hist_h, hist_w, CV_8UC1, Scalar(255));
+
+    // Normalize histogram to fit image height
+    int maxVal = *max_element(histogram.begin(), histogram.end());
+    vector<int> normHist(histSize);
+    for (int i = 0; i < histSize; i++) {
+        normHist[i] = ((double)histogram[i] / maxVal) * histImage.rows;
+    }
+
+    for (int i = 0; i < histSize; i++) {
+        rectangle(histImage, Point(i * bin_w, hist_h),
+                  Point((i + 1) * bin_w, hist_h - normHist[i]),
+                  Scalar(0), FILLED);
+    }
+
+    imwrite(filename, histImage);
+    cout << "Saved histogram image: " << filename << endl;
+}
+
 void computeLocalHistogram(const Mat& input, vector<int>& localHist, int startRow, int endRow) {
     for (int i = startRow; i < endRow; i++) {
         for (int j = 0; j < input.cols; j++) {
@@ -39,7 +82,8 @@ int main(int argc, char** argv) {
     }
 
     Mat image;
-    int rows, cols;
+    int rows = 0, cols = 0;
+    vector<int> globalHist(256, 0);
     if (rank == 0) {
         image = imread(argv[1], IMREAD_UNCHANGED);
         if (image.empty()) {
@@ -83,12 +127,15 @@ int main(int argc, char** argv) {
     computeLocalHistogram(localImage, localHist, 0, myRows);
 
     // Reduce histograms to get the global histogram at rank 0
-    vector<int> globalHist(256, 0);
     MPI_Reduce(localHist.data(), globalHist.data(), 256, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
     // Rank 0 computes CDF and equalized LUT
     vector<uchar> equalizedLUT(256, 0);
     if (rank == 0) {
+        // Print and save BEFORE equalization
+        printHistogramASCII(globalHist, "Histogram BEFORE Equalization");
+        plotHistogramImage(globalHist, "histogram_before_mpi.png");
+
         int totalPixels = rows * cols;
         vector<float> pdf(256, 0.0), cdf(256, 0.0);
         for (int i = 0; i < 256; i++) {
@@ -119,11 +166,22 @@ int main(int argc, char** argv) {
                 equalizedImage.data, sendCounts.data(), displs.data(), MPI_UNSIGNED_CHAR,
                 0, MPI_COMM_WORLD);
 
-    // Save the result at rank 0
+    // Save the result and histogram after equalization at rank 0
     if (rank == 0) {
         imwrite("gray_image_mpi.png", image);
         imwrite("equalized_output_mpi.png", equalizedImage);
-        cout << "Saved equalized_output_mpi.png successfully." << endl;
+        cout << "\nSaved gray_image_mpi.png and equalized_output_mpi.png successfully." << endl;
+
+        // Calculate histogram AFTER equalization
+        vector<int> histAfter(256, 0);
+        for (int i = 0; i < equalizedImage.rows; i++) {
+            for (int j = 0; j < equalizedImage.cols; j++) {
+                int pixelValue = equalizedImage.at<uchar>(i, j);
+                histAfter[pixelValue]++;
+            }
+        }
+        printHistogramASCII(histAfter, "Histogram AFTER Equalization");
+        plotHistogramImage(histAfter, "histogram_after_mpi.png");
     }
 
     MPI_Finalize();

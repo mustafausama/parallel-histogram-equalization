@@ -7,9 +7,52 @@
 using namespace cv;
 using namespace std;
 
-void manualHistogramEqualizationOMP(const Mat& input, Mat& output) {
+// Function to print histogram as ASCII chart
+void printHistogramASCII(const vector<int>& histogram, const string& title) {
+    cout << "\n=== " << title << " ===" << endl;
+    int maxCount = *max_element(histogram.begin(), histogram.end());
+    int scale = maxCount / 50; // scale to 50 chars width max
+
+    for (int i = 0; i < histogram.size(); i++) {
+        if (histogram[i] > 0) {
+            cout << "[" << setw(3) << i << "] ";
+            int barLength = histogram[i] / (scale == 0 ? 1 : scale);
+            for (int j = 0; j < barLength; j++) {
+                cout << "#";
+            }
+            cout << " (" << histogram[i] << ")" << endl;
+        }
+    }
+}
+
+// Function to plot histogram and save as image
+void plotHistogramImage(const vector<int>& histogram, const string& filename) {
+    int histSize = histogram.size();
+    int hist_w = 512; int hist_h = 400;
+    int bin_w = cvRound((double) hist_w / histSize);
+
+    Mat histImage(hist_h, hist_w, CV_8UC1, Scalar(255));
+
+    // Normalize histogram to fit image height
+    int maxVal = *max_element(histogram.begin(), histogram.end());
+    vector<int> normHist(histSize);
+    for (int i = 0; i < histSize; i++) {
+        normHist[i] = ((double)histogram[i] / maxVal) * histImage.rows;
+    }
+
+    for (int i = 0; i < histSize; i++) {
+        rectangle(histImage, Point(i * bin_w, hist_h),
+                  Point((i + 1) * bin_w, hist_h - normHist[i]),
+                  Scalar(0), FILLED);
+    }
+
+    imwrite(filename, histImage);
+    cout << "Saved histogram image: " << filename << endl;
+}
+
+void manualHistogramEqualizationOMP(const Mat& input, Mat& output, vector<int>& histBefore, vector<int>& histAfter) {
     int histSize = 256;
-    vector<int> histogram(histSize, 0);
+    histBefore.assign(histSize, 0);
 
     // Parallel histogram calculation with reduction
     #pragma omp parallel
@@ -28,7 +71,7 @@ void manualHistogramEqualizationOMP(const Mat& input, Mat& output) {
         #pragma omp critical
         {
             for (int i = 0; i < histSize; i++) {
-                histogram[i] += localHist[i];
+                histBefore[i] += localHist[i];
             }
         }
     }
@@ -37,7 +80,7 @@ void manualHistogramEqualizationOMP(const Mat& input, Mat& output) {
     int totalPixels = input.rows * input.cols;
     #pragma omp parallel for
     for (int i = 0; i < histSize; i++) {
-        pdf[i] = (float)histogram[i] / totalPixels;
+        pdf[i] = (float)histBefore[i] / totalPixels;
     }
 
     vector<float> cdf(histSize, 0.0);
@@ -57,6 +100,26 @@ void manualHistogramEqualizationOMP(const Mat& input, Mat& output) {
     for (int i = 0; i < input.rows; i++) {
         for (int j = 0; j < input.cols; j++) {
             output.at<uchar>(i, j) = equalizedLUT[input.at<uchar>(i, j)];
+        }
+    }
+
+    // Calculate histogram after equalization
+    histAfter.assign(histSize, 0);
+    #pragma omp parallel
+    {
+        vector<int> localHist(histSize, 0);
+        #pragma omp for nowait
+        for (int i = 0; i < output.rows; i++) {
+            for (int j = 0; j < output.cols; j++) {
+                int pixelValue = output.at<uchar>(i, j);
+                localHist[pixelValue]++;
+            }
+        }
+        #pragma omp critical
+        {
+            for (int i = 0; i < histSize; i++) {
+                histAfter[i] += localHist[i];
+            }
         }
     }
 }
@@ -82,13 +145,22 @@ int main(int argc, char** argv) {
     }
 
     Mat equalizedImage;
-    manualHistogramEqualizationOMP(grayImage, equalizedImage);
+    vector<int> histBefore, histAfter;
+    manualHistogramEqualizationOMP(grayImage, equalizedImage, histBefore, histAfter);
 
-    // Save both images to disk
+    // Print ASCII charts
+    printHistogramASCII(histBefore, "Histogram BEFORE Equalization");
+    printHistogramASCII(histAfter, "Histogram AFTER Equalization");
+
+    // Save histogram images
+    plotHistogramImage(histBefore, "histogram_before_omp.png");
+    plotHistogramImage(histAfter, "histogram_after_omp.png");
+
+    // Save images
     imwrite("gray_image_omp.png", grayImage);
     imwrite("equalized_output_omp.png", equalizedImage);
 
-    cout << "Saved gray_image_omp.png and equalized_output_omp.png successfully." << endl;
+    cout << "\nSaved gray_image_omp.png and equalized_output_omp.png successfully." << endl;
 
     return 0;
 }
