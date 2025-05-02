@@ -1,54 +1,13 @@
-#include <opencv2/opencv.hpp>
-#include <iostream>
-#include <vector>
-#include <cmath>
 #include <mpi.h>
+#include "utils.hpp"
 
 using namespace cv;
 using namespace std;
 
-// Function to print histogram as ASCII chart
-void printHistogramASCII(const vector<int>& histogram, const string& title) {
-    cout << "\n=== " << title << " ===" << endl;
-    int maxCount = *max_element(histogram.begin(), histogram.end());
-    int scale = maxCount / 50; // scale to 50 chars width max
-
-    for (int i = 0; i < histogram.size(); i++) {
-        if (histogram[i] > 0) {
-            cout << "[" << setw(3) << i << "] ";
-            int barLength = histogram[i] / (scale == 0 ? 1 : scale);
-            for (int j = 0; j < barLength; j++) {
-                cout << "#";
-            }
-            cout << " (" << histogram[i] << ")" << endl;
-        }
-    }
-}
-
-// Function to plot histogram and save as image
-void plotHistogramImage(const vector<int>& histogram, const string& filename) {
-    int histSize = histogram.size();
-    int hist_w = 512; int hist_h = 400;
-    int bin_w = cvRound((double) hist_w / histSize);
-
-    Mat histImage(hist_h, hist_w, CV_8UC1, Scalar(255));
-
-    // Normalize histogram to fit image height
-    int maxVal = *max_element(histogram.begin(), histogram.end());
-    vector<int> normHist(histSize);
-    for (int i = 0; i < histSize; i++) {
-        normHist[i] = ((double)histogram[i] / maxVal) * histImage.rows;
-    }
-
-    for (int i = 0; i < histSize; i++) {
-        rectangle(histImage, Point(i * bin_w, hist_h),
-                  Point((i + 1) * bin_w, hist_h - normHist[i]),
-                  Scalar(0), FILLED);
-    }
-
-    imwrite(filename, histImage);
-    cout << "Saved histogram image: " << filename << endl;
-}
+#define BEFORE_HISTOGRAM_OUTPUT_IMAGE_PATH "output/mpi/before/histogram_before_mpi.png"
+#define AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH "output/mpi/after/histogram_after_mpi.png"
+#define BEFORE_IMAGE_OUTPUT_PATH "output/mpi/before/image_before_mpi.png"
+#define AFTER_IMAGE_OUTPUT_PATH "output/mpi/after/image_after_mpi.png"
 
 void computeLocalHistogram(const Mat& input, vector<int>& localHist, int startRow, int endRow) {
     for (int i = startRow; i < endRow; i++) {
@@ -67,38 +26,9 @@ void applyEqualization(Mat& partImage, const vector<uchar>& equalizedLUT) {
     }
 }
 
-int main(int argc, char** argv) {
-    int rank, size;
-    MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-    if (argc != 2) {
-        if (rank == 0) {
-            cout << "Usage: mpirun -np <num_processes> ./mpi <image_path>" << endl;
-        }
-        MPI_Finalize();
-        return -1;
-    }
-
-    Mat image;
-    int rows = 0, cols = 0;
-    vector<int> globalHist(256, 0);
-    if (rank == 0) {
-        image = imread(argv[1], IMREAD_UNCHANGED);
-        if (image.empty()) {
-            cout << "Could not open or find the image." << endl;
-            MPI_Abort(MPI_COMM_WORLD, -1);
-        }
-
-        if (image.channels() != 1) {
-            cout << "Input image is not grayscale. Converting to grayscale first." << endl;
-            cvtColor(image, image, COLOR_BGR2GRAY);
-        }
-
-        rows = image.rows;
-        cols = image.cols;
-    }
+void manualHistogramEqualization(const int rank, const int size, const Mat& image, vector<int>& histBefore, Mat& equalizedImage, vector<int>& histAfter) {
+    int rows = image.rows;
+    int cols = image.cols;
 
     // Broadcast image size
     MPI_Bcast(&rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -127,19 +57,15 @@ int main(int argc, char** argv) {
     computeLocalHistogram(localImage, localHist, 0, myRows);
 
     // Reduce histograms to get the global histogram at rank 0
-    MPI_Reduce(localHist.data(), globalHist.data(), 256, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(localHist.data(), histBefore.data(), 256, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
     // Rank 0 computes CDF and equalized LUT
     vector<uchar> equalizedLUT(256, 0);
     if (rank == 0) {
-        // Print and save BEFORE equalization
-        printHistogramASCII(globalHist, "Histogram BEFORE Equalization");
-        plotHistogramImage(globalHist, "histogram_before_mpi.png");
-
         int totalPixels = rows * cols;
         vector<float> pdf(256, 0.0), cdf(256, 0.0);
         for (int i = 0; i < 256; i++) {
-            pdf[i] = (float)globalHist[i] / totalPixels;
+            pdf[i] = (float)histBefore[i] / totalPixels;
         }
         cdf[0] = pdf[0];
         for (int i = 1; i < 256; i++) {
@@ -157,7 +83,6 @@ int main(int argc, char** argv) {
     applyEqualization(localImage, equalizedLUT);
 
     // Gather the processed parts back to rank 0
-    Mat equalizedImage;
     if (rank == 0) {
         equalizedImage = Mat(rows, cols, CV_8UC1);
     }
@@ -168,20 +93,57 @@ int main(int argc, char** argv) {
 
     // Save the result and histogram after equalization at rank 0
     if (rank == 0) {
-        imwrite("gray_image_mpi.png", image);
-        imwrite("equalized_output_mpi.png", equalizedImage);
-        cout << "\nSaved gray_image_mpi.png and equalized_output_mpi.png successfully." << endl;
-
         // Calculate histogram AFTER equalization
-        vector<int> histAfter(256, 0);
         for (int i = 0; i < equalizedImage.rows; i++) {
             for (int j = 0; j < equalizedImage.cols; j++) {
                 int pixelValue = equalizedImage.at<uchar>(i, j);
                 histAfter[pixelValue]++;
             }
         }
-        printHistogramASCII(histAfter, "Histogram AFTER Equalization");
-        plotHistogramImage(histAfter, "histogram_after_mpi.png");
+    }
+}
+
+int main(int argc, char** argv) {
+    int rank, size;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    if (argc != 2) {
+        if (rank == 0) {
+            cout << "Usage: mpirun -np <num_processes> ./mpi <image_path>" << endl;
+        }
+        MPI_Finalize();
+        return -1;
+    }
+
+    Mat image;
+    int rows = 0, cols = 0;
+    if (rank == 0) {
+        try {
+            readImage(argv[1], image);
+        } catch (const std::exception& e) {
+            MPI_Abort(MPI_COMM_WORLD, -1);
+            throw e;
+        }
+    }
+
+    Mat equalizedImage;
+    vector<int> histBefore(256, 0);
+    vector<int> histAfter(256, 0);
+
+    double duration = measureRuntime(manualHistogramEqualization, rank, size, image, histBefore, equalizedImage, histAfter);
+
+    if (rank == 0) {
+        outputHistogram(histBefore, BEFORE_HISTOGRAM_OUTPUT_IMAGE_PATH, "Histogram BEFORE Equalization");
+        outputHistogram(histAfter, AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH, "Histogram AFTER Equalization");
+
+        imwrite(BEFORE_IMAGE_OUTPUT_PATH, image);
+        imwrite(AFTER_IMAGE_OUTPUT_PATH, equalizedImage);
+
+        cout << "\nSaved gray_image_mpi.png and equalized_output_mpi.png successfully." << endl;
+
+        cout << "Runtime: " << duration << " ms" << endl;
     }
 
     MPI_Finalize();

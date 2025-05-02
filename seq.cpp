@@ -1,53 +1,13 @@
-#include <opencv2/opencv.hpp>
-#include <iostream>
-#include <vector>
-#include <cmath>
+#include "utils.hpp"
 
 using namespace cv;
 using namespace std;
 
-// Function to print histogram as ASCII chart
-void printHistogramASCII(const vector<int>& histogram, const string& title) {
-    cout << "\n=== " << title << " ===" << endl;
-    int maxCount = *max_element(histogram.begin(), histogram.end());
-    int scale = maxCount / 50; // scale to 50 chars width max
+#define BEFORE_HISTOGRAM_OUTPUT_IMAGE_PATH "output/seq/before/histogram_before_seq.png"
+#define AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH "output/seq/after/histogram_after_seq.png"
+#define BEFORE_IMAGE_OUTPUT_PATH "output/seq/before/image_before_seq.png"
+#define AFTER_IMAGE_OUTPUT_PATH "output/seq/after/image_after_seq.png"
 
-    for (int i = 0; i < histogram.size(); i++) {
-        if (histogram[i] > 0) {
-            cout << "[" << setw(3) << i << "] ";
-            int barLength = histogram[i] / (scale == 0 ? 1 : scale);
-            for (int j = 0; j < barLength; j++) {
-                cout << "#";
-            }
-            cout << " (" << histogram[i] << ")" << endl;
-        }
-    }
-}
-
-// Function to plot histogram and save as image
-void plotHistogramImage(const vector<int>& histogram, const string& filename) {
-    int histSize = histogram.size();
-    int hist_w = 512; int hist_h = 400;
-    int bin_w = cvRound((double) hist_w / histSize);
-
-    Mat histImage(hist_h, hist_w, CV_8UC1, Scalar(255));
-
-    // Normalize histogram to fit image height
-    int maxVal = *max_element(histogram.begin(), histogram.end());
-    vector<int> normHist(histSize);
-    for (int i = 0; i < histSize; i++) {
-        normHist[i] = ((double)histogram[i] / maxVal) * histImage.rows;
-    }
-
-    for (int i = 0; i < histSize; i++) {
-        rectangle(histImage, Point(i * bin_w, hist_h),
-                  Point((i + 1) * bin_w, hist_h - normHist[i]),
-                  Scalar(0), FILLED);
-    }
-
-    imwrite(filename, histImage);
-    cout << "Saved histogram image: " << filename << endl;
-}
 
 void manualHistogramEqualization(const Mat& input, Mat& output, vector<int>& histBefore, vector<int>& histAfter) {
     int histSize = 256;
@@ -101,41 +61,27 @@ void manualHistogramEqualization(const Mat& input, Mat& output, vector<int>& his
 
 int main(int argc, char** argv) {
     if (argc != 2) {
-        cout << "Usage: ./seq <image_path>" << endl;
+        cout << "Usage: " << argv[0] << " <image_path>" << endl;
         return -1;
     }
 
-    Mat image = imread(argv[1], IMREAD_UNCHANGED);
-    if (image.empty()) {
-        cout << "Could not open or find the image." << endl;
-        return -1;
-    }
-
-    Mat grayImage;
-    if (image.channels() == 1) {
-        grayImage = image.clone();
-    } else {
-        cout << "Input image is not grayscale. Converting to grayscale first." << endl;
-        cvtColor(image, grayImage, COLOR_BGR2GRAY);
-    }
+    Mat image;
+    readImage(argv[1], image);
 
     Mat equalizedImage;
     vector<int> histBefore, histAfter;
-    manualHistogramEqualization(grayImage, equalizedImage, histBefore, histAfter);
 
-    // Print ASCII charts
-    printHistogramASCII(histBefore, "Histogram BEFORE Equalization");
-    printHistogramASCII(histAfter, "Histogram AFTER Equalization");
+    double duration = measureRuntime(manualHistogramEqualization, image, equalizedImage, histBefore, histAfter);
 
-    // Save histogram images
-    plotHistogramImage(histBefore, "histogram_before.png");
-    plotHistogramImage(histAfter, "histogram_after.png");
+    outputHistogram(histBefore, BEFORE_HISTOGRAM_OUTPUT_IMAGE_PATH, "Histogram BEFORE Equalization");
+    outputHistogram(histAfter, AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH, "Histogram AFTER Equalization");
 
-    // Save images
-    imwrite("gray_image.png", grayImage);
-    imwrite("equalized_output.png", equalizedImage);
+    imwrite(BEFORE_IMAGE_OUTPUT_PATH, image);
+    imwrite(AFTER_IMAGE_OUTPUT_PATH, equalizedImage);
 
-    cout << "\nSaved gray_image.png and equalized_output.png successfully." << endl;
+    cout << "\nSaved input_gray_image.png and equalized_output.png successfully." << endl;
+    
+    cout << "Runtime: " << duration << " ms" << endl;
 
     return 0;
 }
