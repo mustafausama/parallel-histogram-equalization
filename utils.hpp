@@ -27,4 +27,20 @@ double measureRuntime(Func &&func, Args &&...args)
   return duration.count();
 }
 
+void stackImages(const cv::Mat &img1,
+                 const cv::Mat &img2,
+                 cv::Mat &output,
+                 bool horizontal = true,
+                 double dividerPercent = 0.005,
+                 const cv::Scalar &dividerColor = cv::Scalar(0));
+
+void generateCombinedOutputs(
+    const cv::Mat &beforeImage,
+    const cv::Mat &afterImage,
+    const std::string &beforeHistPath,
+    const std::string &afterHistPath,
+    const std::string &beforeCombinedPath,
+    const std::string &afterCombinedPath,
+    const std::string &resultCombinedPath);
+
 #endif

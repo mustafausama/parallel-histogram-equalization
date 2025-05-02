@@ -8,6 +8,9 @@ using namespace std;
 #define AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH "output/omp/after/histogram_after_omp.png"
 #define BEFORE_IMAGE_OUTPUT_PATH "output/omp/before/image_before_omp.png"
 #define AFTER_IMAGE_OUTPUT_PATH "output/omp/after/image_after_omp.png"
+#define BEFORE_IMAGE_HISTOGRAM_COMBINED_PATH "output/omp/before/image_histo_omp.png"
+#define AFTER_IMAGE_HISTOGRAM_COMBINED_PATH "output/omp/after/image_histo_omp.png"
+#define BEFORE_AFTER_COMBINED_PATH "output/omp/result_omp.png"
 
 void manualHistogramEqualization(const Mat &input, Mat &output, vector<int> &histBefore, vector<int> &histAfter)
 {

@@ -7,6 +7,9 @@ using namespace std;
 #define AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH "output/seq/after/histogram_after_seq.png"
 #define BEFORE_IMAGE_OUTPUT_PATH "output/seq/before/image_before_seq.png"
 #define AFTER_IMAGE_OUTPUT_PATH "output/seq/after/image_after_seq.png"
+#define BEFORE_IMAGE_HISTOGRAM_COMBINED_PATH "output/seq/before/image_histo_before_seq.png"
+#define AFTER_IMAGE_HISTOGRAM_COMBINED_PATH "output/seq/after/image_histo_after_seq.png"
+#define BEFORE_AFTER_COMBINED_PATH "output/seq/result_seq.png"
 
 void manualHistogramEqualization(const Mat &input, Mat &output, vector<int> &histBefore, vector<int> &histAfter)
 {
@@ -104,6 +107,15 @@ int main(int argc, char **argv)
 
     outputHistogram(histBefore, BEFORE_HISTOGRAM_OUTPUT_IMAGE_PATH, "Histogram BEFORE Equalization", quiet);
     outputHistogram(histAfter, AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH, "Histogram AFTER Equalization", quiet);
+
+    generateCombinedOutputs(
+        image,
+        equalizedImage,
+        BEFORE_HISTOGRAM_OUTPUT_IMAGE_PATH,
+        AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH,
+        BEFORE_IMAGE_HISTOGRAM_COMBINED_PATH,
+        AFTER_IMAGE_HISTOGRAM_COMBINED_PATH,
+        BEFORE_AFTER_COMBINED_PATH);
 
     if (!quiet)
         cout << "\nSaved " << BEFORE_HISTOGRAM_OUTPUT_IMAGE_PATH << " and " << AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH << " successfully." << endl;

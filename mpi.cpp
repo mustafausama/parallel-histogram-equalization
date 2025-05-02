@@ -8,6 +8,9 @@ using namespace std;
 #define AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH "output/mpi/after/histogram_after_mpi.png"
 #define BEFORE_IMAGE_OUTPUT_PATH "output/mpi/before/image_before_mpi.png"
 #define AFTER_IMAGE_OUTPUT_PATH "output/mpi/after/image_after_mpi.png"
+#define BEFORE_IMAGE_HISTOGRAM_COMBINED_PATH "output/mpi/before/image_histo_before_mpi.png"
+#define AFTER_IMAGE_HISTOGRAM_COMBINED_PATH "output/mpi/after/image_histo_after_mpi.png"
+#define BEFORE_AFTER_COMBINED_PATH "output/mpi/result_mpi.png"
 
 void computeLocalHistogram(const Mat &input, vector<int> &localHist, int startRow, int endRow)
 {
