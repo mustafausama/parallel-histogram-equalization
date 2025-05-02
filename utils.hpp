@@ -12,12 +12,13 @@ using namespace cv;
 #define HIST_IMG_W 512
 #define HIST_IMG_H 400
 
-void outputHistogram(const vector<int>& histogram, const string& filename, const string& title);
+void outputHistogram(const vector<int> &histogram, const string &filename, const string &title);
 
-void readImage(const string& filename, Mat& image);
+void readImage(const string &filename, Mat &image);
 
 template <typename Func, typename... Args>
-double measureRuntime(Func&& func, Args&&... args) {
+double measureRuntime(Func &&func, Args &&...args)
+{
   auto start = chrono::high_resolution_clock::now();
   forward<Func>(func)(forward<Args>(args)...);
   auto end = chrono::high_resolution_clock::now();
