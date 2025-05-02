@@ -8,9 +8,10 @@ using namespace std;
 #define AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH "output/omp/after/histogram_after_omp.png"
 #define BEFORE_IMAGE_OUTPUT_PATH "output/omp/before/image_before_omp.png"
 #define AFTER_IMAGE_OUTPUT_PATH "output/omp/after/image_after_omp.png"
-#define BEFORE_IMAGE_HISTOGRAM_COMBINED_PATH "output/omp/before/image_histo_omp.png"
-#define AFTER_IMAGE_HISTOGRAM_COMBINED_PATH "output/omp/after/image_histo_omp.png"
+#define BEFORE_IMAGE_HISTOGRAM_COMBINED_PATH "output/omp/before/image_histo_before_omp.png"
+#define AFTER_IMAGE_HISTOGRAM_COMBINED_PATH "output/omp/after/image_histo_after_omp.png"
 #define BEFORE_AFTER_COMBINED_PATH "output/omp/result_omp.png"
+#define RUNTIME_OUTPUT_PATH "output/omp/runtime_omp.txt"
 
 void manualHistogramEqualization(const Mat &input, Mat &output, vector<int> &histBefore, vector<int> &histAfter)
 {
@@ -142,10 +143,31 @@ int main(int argc, char **argv)
     outputHistogram(histBefore, BEFORE_HISTOGRAM_OUTPUT_IMAGE_PATH, "Histogram BEFORE Equalization", quiet);
     outputHistogram(histAfter, AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH, "Histogram AFTER Equalization", quiet);
 
+    generateCombinedOutputs(
+        image,
+        equalizedImage,
+        BEFORE_HISTOGRAM_OUTPUT_IMAGE_PATH,
+        AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH,
+        BEFORE_IMAGE_HISTOGRAM_COMBINED_PATH,
+        AFTER_IMAGE_HISTOGRAM_COMBINED_PATH,
+        BEFORE_AFTER_COMBINED_PATH);
+
     if (!quiet)
         cout << "\nSaved " << BEFORE_HISTOGRAM_OUTPUT_IMAGE_PATH << " and " << AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH << " successfully." << endl;
 
     cout << "Runtime: " << duration << " ms" << endl;
+
+    // Save runtime to file
+    ofstream runtimeFile(RUNTIME_OUTPUT_PATH);
+    if (runtimeFile.is_open())
+    {
+        runtimeFile << "Runtime: " << duration << " ms" << endl;
+        runtimeFile.close();
+    }
+    else
+    {
+        cerr << "Error opening file for writing: " << RUNTIME_OUTPUT_PATH << endl;
+    }
 
     return 0;
 }

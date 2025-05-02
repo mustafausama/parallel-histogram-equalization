@@ -70,6 +70,18 @@ run-mpi:
 
 build-run-mpi: build-mpi run-mpi
 
+# ---- Combine all ----
+build-combine:
+	docker exec -w /workspace $(DOCKER_CONTAINER) $(CXX) $(CXXFLAGS) combine_all.cpp utils.cpp -o combine_all.out $(LDFLAGS)
+
+run-combine-only:
+	docker exec -w /workspace $(DOCKER_CONTAINER) sh -c 'LD_LIBRARY_PATH=/usr/local/lib ./combine_all.out'
+
+combine: build-combine run-combine-only
+
+# Run-combine: run seq, omp, mpi, then combine
+run-combine: run-seq run-omp run-mpi combine
+
 # Clean binaries (does NOT remove Docker container)
 clean:
 	docker exec -w /workspace $(DOCKER_CONTAINER) rm -f $(SEQ_BIN) $(OMP_BIN) $(MPI_BIN)

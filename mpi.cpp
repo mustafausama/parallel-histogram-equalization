@@ -11,6 +11,7 @@ using namespace std;
 #define BEFORE_IMAGE_HISTOGRAM_COMBINED_PATH "output/mpi/before/image_histo_before_mpi.png"
 #define AFTER_IMAGE_HISTOGRAM_COMBINED_PATH "output/mpi/after/image_histo_after_mpi.png"
 #define BEFORE_AFTER_COMBINED_PATH "output/mpi/result_mpi.png"
+#define RUNTIME_OUTPUT_PATH "output/mpi/runtime_mpi.txt"
 
 void computeLocalHistogram(const Mat &input, vector<int> &localHist, int startRow, int endRow)
 {
@@ -186,10 +187,32 @@ int main(int argc, char **argv)
 
         outputHistogram(histBefore, BEFORE_HISTOGRAM_OUTPUT_IMAGE_PATH, "Histogram BEFORE Equalization", quiet);
         outputHistogram(histAfter, AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH, "Histogram AFTER Equalization", quiet);
+
+        generateCombinedOutputs(
+            image,
+            equalizedImage,
+            BEFORE_HISTOGRAM_OUTPUT_IMAGE_PATH,
+            AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH,
+            BEFORE_IMAGE_HISTOGRAM_COMBINED_PATH,
+            AFTER_IMAGE_HISTOGRAM_COMBINED_PATH,
+            BEFORE_AFTER_COMBINED_PATH);
+
         if (!quiet)
             cout << "\nSaved " << BEFORE_HISTOGRAM_OUTPUT_IMAGE_PATH << " and " << AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH << " successfully." << endl;
 
         cout << "Runtime: " << duration << " ms" << endl;
+
+        // Save runtime to file
+        ofstream runtimeFile(RUNTIME_OUTPUT_PATH);
+        if (runtimeFile.is_open())
+        {
+            runtimeFile << "Runtime: " << duration << " ms" << endl;
+            runtimeFile.close();
+        }
+        else
+        {
+            cerr << "Unable to open file: " << RUNTIME_OUTPUT_PATH << endl;
+        }
     }
 
     MPI_Finalize();
