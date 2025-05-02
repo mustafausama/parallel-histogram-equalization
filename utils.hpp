@@ -12,7 +12,7 @@ using namespace cv;
 #define HIST_IMG_W 512
 #define HIST_IMG_H 400
 
-void outputHistogram(const vector<int> &histogram, const string &filename, const string &title);
+void outputHistogram(const vector<int> &histogram, const string &filename, const string &title, const bool quiet);
 
 void readImage(const string &filename, Mat &image);
 

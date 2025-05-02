@@ -136,13 +136,11 @@ int main(int argc, char **argv)
     imwrite(BEFORE_IMAGE_OUTPUT_PATH, image);
     imwrite(AFTER_IMAGE_OUTPUT_PATH, equalizedImage);
 
-    if (!quiet)
-    {
-        outputHistogram(histBefore, BEFORE_HISTOGRAM_OUTPUT_IMAGE_PATH, "Histogram BEFORE Equalization");
-        outputHistogram(histAfter, AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH, "Histogram AFTER Equalization");
+    outputHistogram(histBefore, BEFORE_HISTOGRAM_OUTPUT_IMAGE_PATH, "Histogram BEFORE Equalization", quiet);
+    outputHistogram(histAfter, AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH, "Histogram AFTER Equalization", quiet);
 
+    if (!quiet)
         cout << "\nSaved " << BEFORE_HISTOGRAM_OUTPUT_IMAGE_PATH << " and " << AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH << " successfully." << endl;
-    }
 
     cout << "Runtime: " << duration << " ms" << endl;
 

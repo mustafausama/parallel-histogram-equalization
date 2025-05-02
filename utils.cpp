@@ -24,7 +24,7 @@ namespace
         }
     }
 
-    void plotHistogramImage(const vector<int> &histogram, const string &filename)
+    void plotHistogramImage(const vector<int> &histogram, const string &filename, const bool quiet = false)
     {
         int histSize = histogram.size();
         int bin_w = cvRound((double)HIST_IMG_W / histSize);
@@ -47,7 +47,8 @@ namespace
         }
 
         imwrite(filename, histImage);
-        cout << "Saved histogram image: " << filename << endl;
+        if (!quiet)
+            cout << "Saved histogram image: " << filename << endl;
     }
 
     void grayScaleImage(const Mat &image, Mat &grayImage)
@@ -58,16 +59,17 @@ namespace
         }
         else
         {
-            cout << "Input image is not grayscale. Converting to grayscale first." << endl;
+            cout << "Warning: input image is not grayscale. Converting to grayscale first." << endl;
             cvtColor(image, grayImage, COLOR_BGR2GRAY);
         }
     }
 }
 
-void outputHistogram(const vector<int> &histogram, const string &filename, const string &title)
+void outputHistogram(const vector<int> &histogram, const string &filename, const string &title, const bool quiet = false)
 {
-    printHistogram(histogram, title);
-    plotHistogramImage(histogram, filename);
+    if (!quiet)
+        printHistogram(histogram, title);
+    plotHistogramImage(histogram, filename, quiet);
 }
 
 void readImage(const string &filename, Mat &image)
