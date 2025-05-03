@@ -1,8 +1,6 @@
 {
   "name": "OpenCV + MPI Devcontainer",
-  "build": {
-    "dockerfile": "./Dockerfile"
-  },
+  "image": "heaviboi/cpp-opencv-mpi",
   "customizations": {
     "vscode": {
       "settings": {
