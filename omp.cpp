@@ -25,7 +25,7 @@ void manualHistogramEqualization(const Mat &input, Mat &output, vector<int> &his
     {
         vector<int> localHist(histSize, 0);
 
-#pragma omp for collapse(2)
+#pragma omp for nowait collapse(2)
         for (int i = 0; i < input.rows; i++)
         {
             for (int j = 0; j < input.cols; j++)
@@ -86,7 +86,7 @@ void manualHistogramEqualization(const Mat &input, Mat &output, vector<int> &his
     {
         vector<int> localHist(histSize, 0);
 
-#pragma omp for collapse(2)
+#pragma omp for nowait collapse(2)
         for (int i = 0; i < output.rows; i++)
         {
             for (int j = 0; j < output.cols; j++)
