@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/devcontainers/base:ubuntu-18.04
+FROM ubuntu:18.04
 
 # Install requirements
 RUN apt-get update && apt-get install -y \
@@ -17,9 +17,3 @@ RUN git clone https://github.com/opencv/opencv.git && \
 
 # Install MPI (OpenMPI)
 RUN apt-get update && apt-get install -y openmpi-bin libopenmpi-dev
-
-RUN apt-get update && apt-get install -y sudo \
-    && id vscode || useradd -ms /bin/bash vscode \
-    && mkdir -p /etc/sudoers.d \
-    && echo "vscode ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/nopasswd \
-    && chmod 0440 /etc/sudoers.d/nopasswd

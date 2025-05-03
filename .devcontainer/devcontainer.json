@@ -1,5 +1,4 @@
 {
   "name": "OpenCV + MPI Devcontainer",
-  "image": "heaviboi/cpp-opencv-mpi",
-  "remoteUser": "vscode"
+  "image": "heaviboi/cpp-opencv-mpi"
 }
