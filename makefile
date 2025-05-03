@@ -21,67 +21,123 @@ THREADS ?= 4
 QUIET_FLAG := $(if $(filter 1,$(QUIET)),--quiet,)
 
 # Build Docker image
-docker-build:
+docker-build-image:
 	docker build -f Dockerfile -t $(DOCKER_IMAGE) .
 
 # Run Docker container mounting current directory
-docker-run:
+docker-run-container:
 	docker run -dit --name $(DOCKER_CONTAINER) -v "$(PWD)":/workspace $(DOCKER_IMAGE)
 
 # Build all binaries inside Docker
-build-all: build-seq build-omp build-mpi
+docker-build-all: docker-build-seq docker-build-omp docker-build-mpi
 
 # ---- Sequential ----
-build-seq:
+docker-build-seq:
 	docker exec -w /workspace $(DOCKER_CONTAINER) $(CXX) $(CXXFLAGS) seq.cpp utils.cpp -o $(SEQ_BIN) $(LDFLAGS)
 
-run-seq:
+docker-run-seq:
 	@if [ -z "$(IMAGE)" ]; then \
 		echo "Error: You must provide IMAGE (e.g., IMAGE=\"input/einstein.jpg\")"; \
 		exit 1; \
 	fi
 	docker exec -w /workspace $(DOCKER_CONTAINER) sh -c 'LD_LIBRARY_PATH=/usr/local/lib ./$(SEQ_BIN) $(QUIET_FLAG) $(IMAGE)'
 
+docker-build-run-seq: docker-build-seq docker-run-seq
+
+# Local equivalents
+build-seq:
+	$(CXX) $(CXXFLAGS) seq.cpp utils.cpp -o $(SEQ_BIN) $(LDFLAGS)
+
+run-seq:
+	@if [ -z "$(IMAGE)" ]; then \
+		echo "Error: You must provide IMAGE (e.g., IMAGE=\"input/einstein.jpg\")"; \
+		exit 1; \
+	fi
+	LD_LIBRARY_PATH=/usr/local/lib ./$(SEQ_BIN) $(QUIET_FLAG) $(IMAGE)
+
 build-run-seq: build-seq run-seq
 
 # ---- OpenMP ----
-build-omp:
+docker-build-omp:
 	docker exec -w /workspace $(DOCKER_CONTAINER) $(CXX) $(CXXFLAGS) $(OMPFLAGS) omp.cpp utils.cpp -o $(OMP_BIN) $(LDFLAGS)
 
-run-omp:
+docker-run-omp:
 	@if [ -z "$(IMAGE)" ]; then \
 		echo "Error: You must provide IMAGE (e.g., IMAGE=\"input/einstein.jpg\")"; \
 		exit 1; \
 	fi
 	docker exec -w /workspace $(DOCKER_CONTAINER) sh -c 'OMP_NUM_THREADS=$(THREADS) LD_LIBRARY_PATH=/usr/local/lib ./$(OMP_BIN) $(QUIET_FLAG) $(IMAGE)'
 
+docker-build-run-omp: docker-build-omp docker-run-omp
+
+# Local equivalents
+build-omp:
+	$(CXX) $(CXXFLAGS) $(OMPFLAGS) omp.cpp utils.cpp -o $(OMP_BIN) $(LDFLAGS)
+
+run-omp:
+	@if [ -z "$(IMAGE)" ]; then \
+		echo "Error: You must provide IMAGE (e.g., IMAGE=\"input/einstein.jpg\")"; \
+		exit 1; \
+	fi
+	OMP_NUM_THREADS=$(THREADS) LD_LIBRARY_PATH=/usr/local/lib ./$(OMP_BIN) $(QUIET_FLAG) $(IMAGE)
+
 build-run-omp: build-omp run-omp
 
 # ---- MPI ----
-build-mpi:
+docker-build-mpi:
 	docker exec -w /workspace $(DOCKER_CONTAINER) $(MPICXX) $(CXXFLAGS) mpi.cpp utils.cpp -o $(MPI_BIN) $(LDFLAGS)
 
-run-mpi:
+docker-run-mpi:
 	@if [ -z "$(IMAGE)" ]; then \
 		echo "Error: You must provide IMAGE (e.g., IMAGE=\"input/einstein.jpg\")"; \
 		exit 1; \
 	fi
 	docker exec -w /workspace $(DOCKER_CONTAINER) sh -c 'LD_LIBRARY_PATH=/usr/local/lib mpirun --allow-run-as-root -np $(THREADS) ./$(MPI_BIN) $(QUIET_FLAG) $(IMAGE)'
 
+docker-build-run-mpi: docker-build-mpi docker-run-mpi
+
+# Local equivalents
+build-mpi:
+	$(MPICXX) $(CXXFLAGS) mpi.cpp utils.cpp -o $(MPI_BIN) $(LDFLAGS)
+
+run-mpi:
+	@if [ -z "$(IMAGE)" ]; then \
+		echo "Error: You must provide IMAGE (e.g., IMAGE=\"input/einstein.jpg\")"; \
+		exit 1; \
+	fi
+	LD_LIBRARY_PATH=/usr/local/lib mpirun -np $(THREADS) ./$(MPI_BIN) $(QUIET_FLAG) $(IMAGE)
+
 build-run-mpi: build-mpi run-mpi
 
 # ---- Combine all ----
-build-combine:
+docker-build-combine:
 	docker exec -w /workspace $(DOCKER_CONTAINER) $(CXX) -std=c++17 $(CXXFLAGS) combine_all.cpp utils.cpp -o combine_all.out $(LDFLAGS)
 
-run-combine-only:
+docker-run-combine:
 	docker exec -w /workspace $(DOCKER_CONTAINER) sh -c 'LD_LIBRARY_PATH=/usr/local/lib ./combine_all.out'
 
-combine: build-combine run-combine-only
+docker-build-run-combine: docker-build-combine docker-run-combine
 
-# Run-combine: run seq, omp, mpi, then combine
-run-combine: run-seq run-omp run-mpi combine
+# Local equivalents
+build-combine:
+	$(CXX) -std=c++17 $(CXXFLAGS) combine_all.cpp utils.cpp -o combine_all.out $(LDFLAGS)
+
+run-combine:
+	LD_LIBRARY_PATH=/usr/local/lib ./combine_all.out
+
+build-run-combine: build-combine run-combine
+
+# Run-all-combine: run seq, omp, mpi, then combine
+docker-build-run-all-combine: docker-build-all docker-build-combine docker-run-all-combine
+
+docker-run-all-combine: docker-run-seq docker-run-omp docker-run-mpi docker-run-combine
+
+# Local equivalent
+build-run-all-combine: build-seq build-omp build-mpi build-combine run-seq run-omp run-mpi run-combine
 
 # Clean binaries (does NOT remove Docker container)
-clean:
+docker-clean:
 	docker exec -w /workspace $(DOCKER_CONTAINER) rm -f $(SEQ_BIN) $(OMP_BIN) $(MPI_BIN)
+
+clean:
+	rm -f $(SEQ_BIN) $(OMP_BIN) $(MPI_BIN) combine_all.out
