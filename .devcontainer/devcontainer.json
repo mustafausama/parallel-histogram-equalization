@@ -1,9 +1,21 @@
 {
   "name": "OpenCV + MPI Devcontainer",
   "build": {
-    "dockerfile": "../Dockerfile"
+    "dockerfile": "./Dockerfile"
   },
   "workspaceFolder": "/workspace",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash"
+      },
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "ms-python.python"
+      ]
+    }
+  },
   "forwardPorts": [],
   "postCreateCommand": "",
   "remoteUser": "root"
