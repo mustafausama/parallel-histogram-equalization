@@ -1,19 +1,5 @@
 {
   "name": "OpenCV + MPI Devcontainer",
   "image": "heaviboi/cpp-opencv-mpi",
-  "customizations": {
-    "vscode": {
-      "settings": {
-        "terminal.integrated.shell.linux": "/bin/bash"
-      },
-      "extensions": [
-        "ms-vscode.cpptools",
-        "ms-vscode.cmake-tools",
-        "ms-python.python"
-      ]
-    }
-  },
-  "forwardPorts": [],
-  "postCreateCommand": "",
-  "remoteUser": "root"
+  "remoteUser": "vscode"
 }
