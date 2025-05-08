@@ -66,21 +66,20 @@ namespace
 
     void MatToImageType(const Mat &mat, ImageType &image)
     {
-        image.resize(mat.rows);
+        image.resize(mat.rows, mat.cols);
         for (int i = 0; i < mat.rows; i++)
         {
-            image[i].resize(mat.cols);
             for (int j = 0; j < mat.cols; j++)
-                image[i][j] = mat.at<uchar>(i, j);
+                image.at(i, j) = mat.at<uchar>(i, j);
         }
     }
 
     void ImageTypeToMat(const ImageType &image, Mat &mat)
     {
-        mat = Mat(static_cast<int>(image.size()), static_cast<int>(image[0].size()), CV_8UC1);
-        for (int i = 0; i < image.size(); i++)
-            for (int j = 0; j < image[i].size(); j++)
-                mat.at<uchar>(i, j) = image[i][j];
+        mat = Mat(static_cast<int>(image.rows()), static_cast<int>(image.cols()), CV_8UC1);
+        for (int i = 0; i < image.rows(); i++)
+            for (int j = 0; j < image.cols(); j++)
+                mat.at<uchar>(i, j) = image.at(i, j);
     }
 }
 

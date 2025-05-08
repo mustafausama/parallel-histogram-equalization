@@ -19,18 +19,18 @@ void manualHistogramEqualization(const ImageType &input, ImageType &output, vect
     histBefore.assign(histSize, 0);
 
     // Calculate histogram
-    for (int i = 0; i < input.size(); i++)
+    for (int i = 0; i < input.rows(); i++)
     {
-        for (int j = 0; j < input[i].size(); j++)
+        for (int j = 0; j < input.cols(); j++)
         {
-            int pixelValue = input[i][j];
+            int pixelValue = input.at(i, j);
             histBefore[pixelValue]++;
         }
     }
 
     // PDF
     vector<float> pdf(histSize, 0.0);
-    int totalPixels = input.size() * input[0].size();
+    int totalPixels = input.rows() * input.cols();
     for (int i = 0; i < histSize; i++)
     {
         pdf[i] = (float)histBefore[i] / totalPixels;
@@ -53,21 +53,21 @@ void manualHistogramEqualization(const ImageType &input, ImageType &output, vect
 
     // Apply equalization
     output = input;
-    for (int i = 0; i < input.size(); i++)
+    for (int i = 0; i < input.rows(); i++)
     {
-        for (int j = 0; j < input[i].size(); j++)
+        for (int j = 0; j < input.cols(); j++)
         {
-            output[i][j] = equalizedLUT[input[i][j]];
+            output.at(i, j) = equalizedLUT[input.at(i, j)];
         }
     }
 
     // Calculate histogram after equalization
     histAfter.assign(histSize, 0);
-    for (int i = 0; i < output.size(); i++)
+    for (int i = 0; i < output.rows(); i++)
     {
-        for (int j = 0; j < output[i].size(); j++)
+        for (int j = 0; j < output.cols(); j++)
         {
-            int pixelValue = output[i][j];
+            int pixelValue = output.at(i, j);
             histAfter[pixelValue]++;
         }
     }

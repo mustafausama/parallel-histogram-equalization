@@ -26,11 +26,11 @@ void manualHistogramEqualization(const ImageType &input, ImageType &output, vect
         vector<int> localHist(histSize, 0);
 
 #pragma omp for nowait collapse(2)
-        for (int i = 0; i < input.size(); i++)
+        for (int i = 0; i < input.rows(); i++)
         {
-            for (int j = 0; j < input[0].size(); j++)
+            for (int j = 0; j < input.cols(); j++)
             {
-                int pixelValue = input[i][j];
+                int pixelValue = input.at(i, j);
                 localHist[pixelValue]++;
             }
         }
@@ -47,7 +47,7 @@ void manualHistogramEqualization(const ImageType &input, ImageType &output, vect
 
     // Compute PDF
     vector<float> pdf(histSize, 0.0);
-    int totalPixels = input.size() * input[0].size();
+    int totalPixels = input.rows() * input.cols();
 #pragma omp parallel for
     for (int i = 0; i < histSize; i++)
     {
@@ -73,11 +73,11 @@ void manualHistogramEqualization(const ImageType &input, ImageType &output, vect
     // Apply LUT to get the equalized image
     output = input;
 #pragma omp parallel for collapse(2)
-    for (int i = 0; i < input.size(); i++)
+    for (int i = 0; i < input.rows(); i++)
     {
-        for (int j = 0; j < input[0].size(); j++)
+        for (int j = 0; j < input.cols(); j++)
         {
-            output[i][j] = equalizedLUT[input[i][j]];
+            output.at(i, j) = equalizedLUT[input.at(i, j)];
         }
     }
 
@@ -87,11 +87,11 @@ void manualHistogramEqualization(const ImageType &input, ImageType &output, vect
         vector<int> localHist(histSize, 0);
 
 #pragma omp for nowait collapse(2)
-        for (int i = 0; i < output.size(); i++)
+        for (int i = 0; i < output.rows(); i++)
         {
-            for (int j = 0; j < output[0].size(); j++)
+            for (int j = 0; j < output.cols(); j++)
             {
-                int pixelValue = output[i][j];
+                int pixelValue = output.at(i, j);
                 localHist[pixelValue]++;
             }
         }

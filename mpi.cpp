@@ -1,6 +1,5 @@
 #include <mpi.h>
 #include "utils.hpp"
-#include <fstream>
 
 using namespace cv;
 using namespace std;
@@ -14,33 +13,33 @@ using namespace std;
 #define BEFORE_AFTER_COMBINED_PATH "output/mpi/result_mpi.png"
 #define RUNTIME_OUTPUT_PATH "output/mpi/runtime_mpi.txt"
 
-void computeLocalHistogram(const Mat &input, vector<int> &localHist, int startRow, int endRow)
+void computeLocalHistogram(const ImageType &input, vector<int> &localHist, int startRow, int endRow)
 {
     for (int i = startRow; i < endRow; i++)
     {
-        for (int j = 0; j < input.cols; j++)
+        for (int j = 0; j < input.cols(); j++)
         {
-            int pixelValue = input.at<uchar>(i, j);
+            int pixelValue = input.at(i, j);
             localHist[pixelValue]++;
         }
     }
 }
 
-void applyEqualization(Mat &partImage, const vector<uchar> &equalizedLUT)
+void applyEqualization(ImageType &partImage, const vector<uchar> &equalizedLUT)
 {
-    for (int i = 0; i < partImage.rows; i++)
+    for (int i = 0; i < partImage.rows(); i++)
     {
-        for (int j = 0; j < partImage.cols; j++)
+        for (int j = 0; j < partImage.cols(); j++)
         {
-            partImage.at<uchar>(i, j) = equalizedLUT[partImage.at<uchar>(i, j)];
+            partImage.at(i, j) = equalizedLUT[partImage.at(i, j)];
         }
     }
 }
 
-void manualHistogramEqualization(const int rank, const int size, const Mat &image, vector<int> &histBefore, Mat &equalizedImage, vector<int> &histAfter)
+void manualHistogramEqualization(const int rank, const int size, const ImageType &image, vector<int> &histBefore, ImageType &equalizedImage, vector<int> &histAfter)
 {
-    int rows = image.rows;
-    int cols = image.cols;
+    int rows = image.rows();
+    int cols = image.cols();
 
     // Broadcast image size
     MPI_Bcast(&rows, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -50,7 +49,7 @@ void manualHistogramEqualization(const int rank, const int size, const Mat &imag
     int localRows = rows / size;
     int remainder = rows % size;
     int myRows = (rank < remainder) ? localRows + 1 : localRows;
-    Mat localImage(myRows, cols, CV_8UC1);
+    ImageType localImage(myRows, cols);
 
     // Scatterv setup
     vector<int> sendCounts(size), displs(size);
@@ -62,8 +61,8 @@ void manualHistogramEqualization(const int rank, const int size, const Mat &imag
         offset += sendCounts[i];
     }
 
-    MPI_Scatterv(image.data, sendCounts.data(), displs.data(), MPI_UNSIGNED_CHAR,
-                 localImage.data, myRows * cols, MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
+    MPI_Scatterv(image.getData(), sendCounts.data(), displs.data(), MPI_UNSIGNED_CHAR,
+                 localImage.getData(), myRows * cols, MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
 
     // Each process computes its local histogram
     vector<int> localHist(256, 0);
@@ -102,22 +101,22 @@ void manualHistogramEqualization(const int rank, const int size, const Mat &imag
     // Gather the processed parts back to rank 0
     if (rank == 0)
     {
-        equalizedImage = Mat(rows, cols, CV_8UC1);
+        equalizedImage.resize(rows, cols);
     }
 
-    MPI_Gatherv(localImage.data, myRows * cols, MPI_UNSIGNED_CHAR,
-                equalizedImage.data, sendCounts.data(), displs.data(), MPI_UNSIGNED_CHAR,
+    MPI_Gatherv(localImage.getData(), myRows * cols, MPI_UNSIGNED_CHAR,
+                equalizedImage.getData(), sendCounts.data(), displs.data(), MPI_UNSIGNED_CHAR,
                 0, MPI_COMM_WORLD);
 
     // Save the result and histogram after equalization at rank 0
     if (rank == 0)
     {
         // Calculate histogram AFTER equalization
-        for (int i = 0; i < equalizedImage.rows; i++)
+        for (int i = 0; i < equalizedImage.rows(); i++)
         {
-            for (int j = 0; j < equalizedImage.cols; j++)
+            for (int j = 0; j < equalizedImage.cols(); j++)
             {
-                int pixelValue = equalizedImage.at<uchar>(i, j);
+                int pixelValue = equalizedImage.at(i, j);
                 histAfter[pixelValue]++;
             }
         }
@@ -160,7 +159,7 @@ int main(int argc, char **argv)
         }
     }
 
-    Mat image;
+    ImageType image;
     int rows = 0, cols = 0;
     if (rank == 0)
     {
@@ -175,16 +174,18 @@ int main(int argc, char **argv)
         }
     }
 
-    Mat equalizedImage;
+    ImageType equalizedImage;
     vector<int> histBefore(256, 0);
     vector<int> histAfter(256, 0);
 
-    double duration = measureRuntime(manualHistogramEqualization, rank, size, image, histBefore, equalizedImage, histAfter);
+    double duration = measureRuntime(
+        RUNTIME_OUTPUT_PATH,
+        manualHistogramEqualization, rank, size, image, histBefore, equalizedImage, histAfter);
 
     if (rank == 0)
     {
-        imwrite(BEFORE_IMAGE_OUTPUT_PATH, image);
-        imwrite(AFTER_IMAGE_OUTPUT_PATH, equalizedImage);
+        writeImage(BEFORE_IMAGE_OUTPUT_PATH, image);
+        writeImage(AFTER_IMAGE_OUTPUT_PATH, equalizedImage);
 
         outputHistogram(histBefore, BEFORE_HISTOGRAM_OUTPUT_IMAGE_PATH, "Histogram BEFORE Equalization", quiet);
         outputHistogram(histAfter, AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH, "Histogram AFTER Equalization", quiet);
@@ -202,18 +203,6 @@ int main(int argc, char **argv)
             cout << "\nSaved " << BEFORE_HISTOGRAM_OUTPUT_IMAGE_PATH << " and " << AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH << " successfully." << endl;
 
         cout << "Runtime: " << duration << " ms" << endl;
-
-        // Save runtime to file
-        ofstream runtimeFile(RUNTIME_OUTPUT_PATH, ios::trunc);
-        if (runtimeFile.is_open())
-        {
-            runtimeFile << duration << " ms" << endl;
-            runtimeFile.close();
-        }
-        else
-        {
-            cerr << "Unable to open file: " << RUNTIME_OUTPUT_PATH << endl;
-        }
     }
 
     MPI_Finalize();
