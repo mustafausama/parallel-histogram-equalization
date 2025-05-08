@@ -1,6 +1,6 @@
 #include <omp.h>
 #include "utils.hpp"
-#include <fstream>
+#include <cmath>
 
 using namespace cv;
 using namespace std;
@@ -14,7 +14,7 @@ using namespace std;
 #define BEFORE_AFTER_COMBINED_PATH "output/omp/result_omp.png"
 #define RUNTIME_OUTPUT_PATH "output/omp/runtime_omp.txt"
 
-void manualHistogramEqualization(const Mat &input, Mat &output, vector<int> &histBefore, vector<int> &histAfter)
+void manualHistogramEqualization(const ImageType &input, ImageType &output, vector<int> &histBefore, vector<int> &histAfter)
 {
     int histSize = 256;
     histBefore.assign(histSize, 0);
@@ -26,11 +26,11 @@ void manualHistogramEqualization(const Mat &input, Mat &output, vector<int> &his
         vector<int> localHist(histSize, 0);
 
 #pragma omp for nowait collapse(2)
-        for (int i = 0; i < input.rows; i++)
+        for (int i = 0; i < input.size(); i++)
         {
-            for (int j = 0; j < input.cols; j++)
+            for (int j = 0; j < input[0].size(); j++)
             {
-                int pixelValue = input.at<uchar>(i, j);
+                int pixelValue = input[i][j];
                 localHist[pixelValue]++;
             }
         }
@@ -47,7 +47,7 @@ void manualHistogramEqualization(const Mat &input, Mat &output, vector<int> &his
 
     // Compute PDF
     vector<float> pdf(histSize, 0.0);
-    int totalPixels = input.rows * input.cols;
+    int totalPixels = input.size() * input[0].size();
 #pragma omp parallel for
     for (int i = 0; i < histSize; i++)
     {
@@ -63,21 +63,21 @@ void manualHistogramEqualization(const Mat &input, Mat &output, vector<int> &his
     }
 
     // Prepare LUT
-    vector<uchar> equalizedLUT(histSize, 0);
+    vector<uint8_t> equalizedLUT(histSize, 0);
 #pragma omp parallel for
     for (int i = 0; i < histSize; i++)
     {
-        equalizedLUT[i] = cvRound(cdf[i] * 255);
+        equalizedLUT[i] = static_cast<uint8_t>(round(cdf[i] * 255));
     }
 
     // Apply LUT to get the equalized image
-    output = input.clone();
+    output = input;
 #pragma omp parallel for collapse(2)
-    for (int i = 0; i < input.rows; i++)
+    for (int i = 0; i < input.size(); i++)
     {
-        for (int j = 0; j < input.cols; j++)
+        for (int j = 0; j < input[0].size(); j++)
         {
-            output.at<uchar>(i, j) = equalizedLUT[input.at<uchar>(i, j)];
+            output[i][j] = equalizedLUT[input[i][j]];
         }
     }
 
@@ -87,11 +87,11 @@ void manualHistogramEqualization(const Mat &input, Mat &output, vector<int> &his
         vector<int> localHist(histSize, 0);
 
 #pragma omp for nowait collapse(2)
-        for (int i = 0; i < output.rows; i++)
+        for (int i = 0; i < output.size(); i++)
         {
-            for (int j = 0; j < output.cols; j++)
+            for (int j = 0; j < output[0].size(); j++)
             {
-                int pixelValue = output.at<uchar>(i, j);
+                int pixelValue = output[i][j];
                 localHist[pixelValue]++;
             }
         }
@@ -130,16 +130,16 @@ int main(int argc, char **argv)
         }
     }
 
-    Mat image;
+    ImageType image;
     readImage(filename, image);
 
-    Mat equalizedImage;
+    ImageType equalizedImage;
     vector<int> histBefore, histAfter;
 
-    double duration = measureRuntime(manualHistogramEqualization, image, equalizedImage, histBefore, histAfter);
+    double duration = measureRuntime(RUNTIME_OUTPUT_PATH, manualHistogramEqualization, image, equalizedImage, histBefore, histAfter);
 
-    imwrite(BEFORE_IMAGE_OUTPUT_PATH, image);
-    imwrite(AFTER_IMAGE_OUTPUT_PATH, equalizedImage);
+    writeImage(BEFORE_IMAGE_OUTPUT_PATH, image);
+    writeImage(AFTER_IMAGE_OUTPUT_PATH, equalizedImage);
 
     outputHistogram(histBefore, BEFORE_HISTOGRAM_OUTPUT_IMAGE_PATH, "Histogram BEFORE Equalization", quiet);
     outputHistogram(histAfter, AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH, "Histogram AFTER Equalization", quiet);
@@ -157,18 +157,6 @@ int main(int argc, char **argv)
         cout << "\nSaved " << BEFORE_HISTOGRAM_OUTPUT_IMAGE_PATH << " and " << AFTER_HISTOGRAM_OUTPUT_IMAGE_PATH << " successfully." << endl;
 
     cout << "Runtime: " << duration << " ms" << endl;
-
-    // Save runtime to file
-    ofstream runtimeFile(RUNTIME_OUTPUT_PATH, ios::trunc);
-    if (runtimeFile.is_open())
-    {
-        runtimeFile << duration << " ms" << endl;
-        runtimeFile.close();
-    }
-    else
-    {
-        cerr << "Error opening file for writing: " << RUNTIME_OUTPUT_PATH << endl;
-    }
 
     return 0;
 }

@@ -63,6 +63,25 @@ namespace
             cvtColor(image, grayImage, COLOR_BGR2GRAY);
         }
     }
+
+    void MatToImageType(const Mat &mat, ImageType &image)
+    {
+        image.resize(mat.rows);
+        for (int i = 0; i < mat.rows; i++)
+        {
+            image[i].resize(mat.cols);
+            for (int j = 0; j < mat.cols; j++)
+                image[i][j] = mat.at<uchar>(i, j);
+        }
+    }
+
+    void ImageTypeToMat(const ImageType &image, Mat &mat)
+    {
+        mat = Mat(static_cast<int>(image.size()), static_cast<int>(image[0].size()), CV_8UC1);
+        for (int i = 0; i < image.size(); i++)
+            for (int j = 0; j < image[i].size(); j++)
+                mat.at<uchar>(i, j) = image[i][j];
+    }
 }
 
 void outputHistogram(const vector<int> &histogram, const string &filename, const string &title, const bool quiet = false)
@@ -72,7 +91,7 @@ void outputHistogram(const vector<int> &histogram, const string &filename, const
     plotHistogramImage(histogram, filename, quiet);
 }
 
-void readImage(const string &filename, Mat &image)
+void readImage(const string &filename, ImageType &image)
 {
     Mat input_image;
     input_image = imread(filename, IMREAD_UNCHANGED);
@@ -81,7 +100,16 @@ void readImage(const string &filename, Mat &image)
         cerr << "Could not open or find the image: " << filename << endl;
         throw runtime_error("Image not found");
     }
-    grayScaleImage(input_image, image);
+    Mat opened_image;
+    grayScaleImage(input_image, opened_image);
+    MatToImageType(opened_image, image);
+}
+
+void writeImage(const string &filename, const ImageType &image)
+{
+    Mat mat;
+    ImageTypeToMat(image, mat);
+    imwrite(filename, mat);
 }
 
 void stackImages(const cv::Mat &img1,
@@ -169,8 +197,8 @@ void resizeIfTooLarge(cv::Mat &image, int maxDim = 1024)
 }
 
 void generateCombinedOutputs(
-    const cv::Mat &beforeImage,
-    const cv::Mat &afterImage,
+    const ImageType &beforeImage,
+    const ImageType &afterImage,
     const std::string &beforeHistPath,
     const std::string &afterHistPath,
     const std::string &beforeCombinedPath,
@@ -192,14 +220,16 @@ void generateCombinedOutputs(
     }
 
     // First combined: before image + histogram
-    Mat combinedBefore;
-    stackImages(beforeImage, histBeforeImg, combinedBefore, true);
+    Mat combinedBefore, beforeImageMat;
+    ImageTypeToMat(beforeImage, beforeImageMat);
+    stackImages(beforeImageMat, histBeforeImg, combinedBefore, true);
     resizeIfTooLarge(combinedBefore);
     imwrite(beforeCombinedPath, combinedBefore);
 
     // Second combined: after image + histogram
-    Mat combinedAfter;
-    stackImages(afterImage, histAfterImg, combinedAfter, true);
+    Mat combinedAfter, afterImageMat;
+    ImageTypeToMat(afterImage, afterImageMat);
+    stackImages(afterImageMat, histAfterImg, combinedAfter, true);
     resizeIfTooLarge(combinedAfter);
     imwrite(afterCombinedPath, combinedAfter);
 

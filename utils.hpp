@@ -1,6 +1,8 @@
 #include <opencv2/opencv.hpp>
 #include <chrono>
 #include <utility>
+#include <fstream>
+#include <cmath>
 
 using namespace std;
 using namespace cv;
@@ -12,35 +14,53 @@ using namespace cv;
 #define HIST_IMG_W 512
 #define HIST_IMG_H 400
 
+#define ImageType vector<vector<uint8_t>>
+
 void outputHistogram(const vector<int> &histogram, const string &filename, const string &title, const bool quiet);
 
-void readImage(const string &filename, Mat &image);
+void readImage(const string &filename, ImageType &image);
+
+void writeImage(const string &filename, const ImageType &image);
 
 template <typename Func, typename... Args>
-double measureRuntime(Func &&func, Args &&...args)
+double measureRuntime(const string &outputPath, Func &&func, Args &&...args)
 {
   auto start = chrono::high_resolution_clock::now();
   forward<Func>(func)(forward<Args>(args)...);
   auto end = chrono::high_resolution_clock::now();
 
   chrono::duration<double, milli> duration = end - start;
-  return duration.count();
+
+  double d_duration = duration.count();
+
+  ofstream runtimeFile(outputPath, ios::trunc);
+  if (runtimeFile.is_open())
+  {
+    runtimeFile << d_duration << " ms" << endl;
+    runtimeFile.close();
+  }
+  else
+  {
+    cerr << "Unable to open file: " << outputPath << endl;
+  }
+
+  return d_duration;
 }
 
-void stackImages(const cv::Mat &img1,
-                 const cv::Mat &img2,
-                 cv::Mat &output,
+void stackImages(const Mat &img1,
+                 const Mat &img2,
+                 Mat &output,
                  bool horizontal = true,
                  double dividerPercent = 0.005,
-                 const cv::Scalar &dividerColor = cv::Scalar(0));
+                 const Scalar &dividerColor = Scalar(0));
 
 void generateCombinedOutputs(
-    const cv::Mat &beforeImage,
-    const cv::Mat &afterImage,
-    const std::string &beforeHistPath,
-    const std::string &afterHistPath,
-    const std::string &beforeCombinedPath,
-    const std::string &afterCombinedPath,
-    const std::string &resultCombinedPath);
+    const ImageType &beforeImage,
+    const ImageType &afterImage,
+    const string &beforeHistPath,
+    const string &afterHistPath,
+    const string &beforeCombinedPath,
+    const string &afterCombinedPath,
+    const string &resultCombinedPath);
 
 #endif
