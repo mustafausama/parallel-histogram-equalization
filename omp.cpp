@@ -54,7 +54,7 @@ void manualHistogramEqualization(const ImageType &input, ImageType &output, vect
         pdf[i] = (float)histBefore[i] / totalPixels;
     }
 
-    // Compute CDF (serial because it's tiny work)
+    // Compute CDF (serial because each iteration depends on the previous one)
     vector<float> cdf(histSize, 0.0);
     cdf[0] = pdf[0];
     for (int i = 1; i < histSize; i++)
@@ -62,22 +62,22 @@ void manualHistogramEqualization(const ImageType &input, ImageType &output, vect
         cdf[i] = cdf[i - 1] + pdf[i];
     }
 
-    // Prepare LUT
-    vector<uint8_t> equalizedLUT(histSize, 0);
+    // Prepare Lookup Table
+    vector<uint8_t> eqLookupTable(histSize, 0);
 #pragma omp parallel for
     for (int i = 0; i < histSize; i++)
     {
-        equalizedLUT[i] = static_cast<uint8_t>(round(cdf[i] * 255));
+        eqLookupTable[i] = static_cast<uint8_t>(round(cdf[i] * 255));
     }
 
-    // Apply LUT to get the equalized image
+    // Use Lookup Table to equalize the image
     output = input;
 #pragma omp parallel for collapse(2)
     for (int i = 0; i < input.rows(); i++)
     {
         for (int j = 0; j < input.cols(); j++)
         {
-            output.at(i, j) = equalizedLUT[input.at(i, j)];
+            output.at(i, j) = eqLookupTable[input.at(i, j)];
         }
     }
 

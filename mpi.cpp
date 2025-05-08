@@ -1,4 +1,5 @@
 #include <mpi.h>
+#include <cmath>
 #include "utils.hpp"
 
 using namespace cv;
@@ -25,13 +26,13 @@ void computeLocalHistogram(const ImageType &input, vector<int> &localHist, int s
     }
 }
 
-void applyEqualization(ImageType &partImage, const vector<uchar> &equalizedLUT)
+void applyEqualization(ImageType &partImage, const vector<uchar> &eqLookupTable)
 {
     for (int i = 0; i < partImage.rows(); i++)
     {
         for (int j = 0; j < partImage.cols(); j++)
         {
-            partImage.at(i, j) = equalizedLUT[partImage.at(i, j)];
+            partImage.at(i, j) = eqLookupTable[partImage.at(i, j)];
         }
     }
 }
@@ -71,8 +72,8 @@ void manualHistogramEqualization(const int rank, const int size, const ImageType
     // Reduce histograms to get the global histogram at rank 0
     MPI_Reduce(localHist.data(), histBefore.data(), 256, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
-    // Rank 0 computes CDF and equalized LUT
-    vector<uchar> equalizedLUT(256, 0);
+    // Rank 0 computes CDF and equalization lookup table
+    vector<uchar> eqLookupTable(256, 0);
     if (rank == 0)
     {
         int totalPixels = rows * cols;
@@ -88,15 +89,15 @@ void manualHistogramEqualization(const int rank, const int size, const ImageType
         }
         for (int i = 0; i < 256; i++)
         {
-            equalizedLUT[i] = cvRound(cdf[i] * 255);
+            eqLookupTable[i] = static_cast<uint8_t>(round(cdf[i] * 255));
         }
     }
 
-    // Broadcast the LUT to all processes
-    MPI_Bcast(equalizedLUT.data(), 256, MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
+    // Broadcast the equalization lookup table to all processes
+    MPI_Bcast(eqLookupTable.data(), 256, MPI_UNSIGNED_CHAR, 0, MPI_COMM_WORLD);
 
     // Apply equalization to the local part of the image
-    applyEqualization(localImage, equalizedLUT);
+    applyEqualization(localImage, eqLookupTable);
 
     // Gather the processed parts back to rank 0
     if (rank == 0)
