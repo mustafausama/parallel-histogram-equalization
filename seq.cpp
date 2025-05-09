@@ -13,7 +13,7 @@ using namespace std;
 #define BEFORE_AFTER_COMBINED_PATH "output/seq/result_seq.png"
 #define RUNTIME_OUTPUT_PATH "output/seq/runtime_seq.txt"
 
-void manualHistogramEqualization(const ImageType &input, ImageType &output, vector<int> &histBefore, vector<int> &histAfter)
+void histogramEqualization(const ImageType &input, ImageType &output, vector<int> &histBefore, vector<int> &histAfter)
 {
     int histSize = 256;
     histBefore.assign(histSize, 0);
@@ -28,27 +28,27 @@ void manualHistogramEqualization(const ImageType &input, ImageType &output, vect
         }
     }
 
-    // PDF
-    vector<float> pdf(histSize, 0.0);
+    // Probability Density Function
+    vector<float> probDensityFunc(histSize, 0.0);
     int totalPixels = input.rows() * input.cols();
     for (int i = 0; i < histSize; i++)
     {
-        pdf[i] = (float)histBefore[i] / totalPixels;
+        probDensityFunc[i] = (float)histBefore[i] / totalPixels;
     }
 
-    // CDF
-    vector<float> cdf(histSize, 0.0);
-    cdf[0] = pdf[0];
+    // Cumulative Distribution Function
+    vector<float> cumulativeDistFunc(histSize, 0.0);
+    cumulativeDistFunc[0] = probDensityFunc[0];
     for (int i = 1; i < histSize; i++)
     {
-        cdf[i] = cdf[i - 1] + pdf[i];
+        cumulativeDistFunc[i] = cumulativeDistFunc[i - 1] + probDensityFunc[i];
     }
 
     // Prepare Lookup Table
     vector<uint8_t> eqLookupTable(histSize, 0);
     for (int i = 0; i < histSize; i++)
     {
-        eqLookupTable[i] = static_cast<uint8_t>(round(cdf[i] * 255));
+        eqLookupTable[i] = static_cast<uint8_t>(round(cumulativeDistFunc[i] * 255));
     }
 
     // Use Lookup Table to equalize the image
@@ -104,7 +104,7 @@ int main(int argc, char **argv)
 
     double duration = measureRuntime(
         RUNTIME_OUTPUT_PATH,
-        manualHistogramEqualization, image, equalizedImage, histBefore, histAfter);
+        histogramEqualization, image, equalizedImage, histBefore, histAfter);
 
     writeImage(BEFORE_IMAGE_OUTPUT_PATH, image);
     writeImage(AFTER_IMAGE_OUTPUT_PATH, equalizedImage);

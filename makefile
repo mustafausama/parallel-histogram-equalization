@@ -135,6 +135,9 @@ docker-run-all-combine: docker-run-seq docker-run-omp docker-run-mpi docker-run-
 # Local equivalent
 build-run-all-combine: build-seq build-omp build-mpi build-combine run-seq run-omp run-mpi run-combine
 
+# Run-all-combine: run seq, omp, mpi, then combine
+run-all-combine: run-seq run-omp run-mpi run-combine
+
 # Clean binaries (does NOT remove Docker container)
 docker-clean:
 	docker exec -w /workspace $(DOCKER_CONTAINER) rm -f $(SEQ_BIN) $(OMP_BIN) $(MPI_BIN)

@@ -37,7 +37,7 @@ void applyEqualization(ImageType &partImage, const vector<uchar> &eqLookupTable)
     }
 }
 
-void manualHistogramEqualization(const int rank, const int size, const ImageType &image, vector<int> &histBefore, ImageType &equalizedImage, vector<int> &histAfter)
+void histogramEqualization(const int rank, const int size, const ImageType &image, vector<int> &histBefore, ImageType &equalizedImage, vector<int> &histAfter)
 {
     int rows = image.rows();
     int cols = image.cols();
@@ -72,24 +72,24 @@ void manualHistogramEqualization(const int rank, const int size, const ImageType
     // Reduce histograms to get the global histogram at rank 0
     MPI_Reduce(localHist.data(), histBefore.data(), 256, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
-    // Rank 0 computes CDF and equalization lookup table
-    vector<uchar> eqLookupTable(256, 0);
+    // Rank 0 computes Cumulative Distribution Function and equalization lookup table
+    vector<uint8_t> eqLookupTable(256, 0);
     if (rank == 0)
     {
         int totalPixels = rows * cols;
-        vector<float> pdf(256, 0.0), cdf(256, 0.0);
+        vector<float> probDensityFunc(256, 0.0), cumulativeDistFunc(256, 0.0);
         for (int i = 0; i < 256; i++)
         {
-            pdf[i] = (float)histBefore[i] / totalPixels;
+            probDensityFunc[i] = (float)histBefore[i] / totalPixels;
         }
-        cdf[0] = pdf[0];
+        cumulativeDistFunc[0] = probDensityFunc[0];
         for (int i = 1; i < 256; i++)
         {
-            cdf[i] = cdf[i - 1] + pdf[i];
+            cumulativeDistFunc[i] = cumulativeDistFunc[i - 1] + probDensityFunc[i];
         }
         for (int i = 0; i < 256; i++)
         {
-            eqLookupTable[i] = static_cast<uint8_t>(round(cdf[i] * 255));
+            eqLookupTable[i] = static_cast<uint8_t>(round(cumulativeDistFunc[i] * 255));
         }
     }
 
@@ -109,10 +109,9 @@ void manualHistogramEqualization(const int rank, const int size, const ImageType
                 equalizedImage.getData(), sendCounts.data(), displs.data(), MPI_UNSIGNED_CHAR,
                 0, MPI_COMM_WORLD);
 
-    // Save the result and histogram after equalization at rank 0
+    // Calculate histogram after equalization
     if (rank == 0)
     {
-        // Calculate histogram AFTER equalization
         for (int i = 0; i < equalizedImage.rows(); i++)
         {
             for (int j = 0; j < equalizedImage.cols(); j++)
@@ -181,7 +180,7 @@ int main(int argc, char **argv)
 
     double duration = measureRuntime(
         RUNTIME_OUTPUT_PATH,
-        manualHistogramEqualization, rank, size, image, histBefore, equalizedImage, histAfter);
+        histogramEqualization, rank, size, image, histBefore, equalizedImage, histAfter);
 
     if (rank == 0)
     {
